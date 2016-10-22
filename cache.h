@@ -101,6 +101,7 @@
 /* cache replacement policy */
 enum cache_policy {
   LRU,		/* replace least recently used block (perfect LRU) */
+  PLRU,		/* replace least recently used block (pseudo LRU) */
   Random,	/* replace a random block */
   FIFO		/* replace the oldest block in the set */
 };
@@ -142,6 +143,7 @@ struct cache_set_t
   struct cache_blk_t *blks;	/* cache blocks, allocated sequentially, so
 				   this pointer can also be used for random
 				   access to cache blocks */
+  unsigned int plru_state;	/* PLRU state of the set */
 };
 
 /* cache definition */
