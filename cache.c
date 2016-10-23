@@ -369,6 +369,9 @@ cache_create(char *name,		/* name of the cache */
 	 during random replacement selection) */
       cp->sets[i].blks = CACHE_BINDEX(cp, cp->data, bindex);
       
+      int plruStateSize = cp->assoc - 1; // calculate the size (width in bits) of the PLRU state for each set, which is the associativity minus 1
+      cp->sets[i].plruState = (1 << plruStateSize) - 1; // set the PLRU state for each set, shift one and subtract to ensure the state size is correct
+
       /* link the data blocks into ordered way chain and hash table bucket
          chains, if hash table exists */
       for (j=0; j<assoc; j++)
@@ -407,6 +410,7 @@ cache_char2policy(char c)		/* replacement policy as a char */
 {
   switch (c) {
   case 'l': return LRU;
+  case 'p': return PLRU;	// add a parse option to map 'p' to the PLRU option
   case 'r': return Random;
   case 'f': return FIFO;
   default: fatal("bogus replacement policy, `%c'", c);
@@ -425,6 +429,7 @@ cache_config(struct cache_t *cp,	/* cache instance */
 	  "cache: %s: %d-way, `%s' replacement policy, write-back\n",
 	  cp->name, cp->assoc,
 	  cp->policy == LRU ? "LRU"
+	  : cp->policy == PLRU ? "PLRU"		/* add a configuration output for PLRU */
 	  : cp->policy == Random ? "Random"
 	  : cp->policy == FIFO ? "FIFO"
 	  : (abort(), ""));
@@ -489,6 +494,27 @@ cache_stats(struct cache_t *cp,		/* cache instance */
 	  cp->name,
 	  (double)cp->misses/sum, (double)(double)cp->replacements/sum,
 	  (double)cp->invalidations/sum);
+}
+
+// function to get the size (width in bits) of the block index
+int get_bindex_size(int associativity) {
+
+	int bindexSize = 0;		// initialize the size to zero
+
+	// keep shifting the associativity by the counter to count the number of bits required to select all of the sets
+	// could be hard coded to return:
+	//		1 bit for 2-way associative
+	//		2 bit for 4-way associative
+	//		3 bit for 8-way associative
+	// and so on, but easy implementation in code
+	while((associativity >> bindexSize) != 1) {
+
+		bindexSize += 1;	// increment the size in number of bits
+
+	}
+
+	return bindexSize;		// return the size of the block index
+
 }
 
 /* access a cache, perform a CMD operation on cache CP at address ADDR,
