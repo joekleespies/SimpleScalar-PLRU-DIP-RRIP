@@ -702,6 +702,12 @@ cache_access(struct cache_t *cp,	/* cache to access */
     repl = cp->sets[set].way_tail;
     update_way_list(&cp->sets[set], repl, Head);
     break;
+  case PLRU:
+	  int plruStateOld = cp->sets[set].plruState;
+	  int bindex = get_bindex_plru(cp->assoc, plruStateOld);
+	  repl = CACHE_BINDEX(cp, cp->sets[set].blks, bindex);
+	  cp->sets[set].plruState = update_plru_state(cp->assoc, bindex, plruStateOld);
+	  break;
   case Random:
     {
       int bindex = myrand() & (cp->assoc - 1);
@@ -801,6 +807,24 @@ cache_access(struct cache_t *cp,	/* cache to access */
       /* move this block to head of the way (MRU) list */
       update_way_list(&cp->sets[set], blk, Head);
     }
+
+  // add the policy handling for the PLRU policy
+  if(cp->policy == PLRU) {
+
+	  // initialize the bindex variable and walkerBlock pointer
+	  int bindex = 0;
+	  struct cache_blk_t *walkerBlock = blk;
+
+	  for(walkerBlock = blk; walkerBlock != NULL; walkerBlock = walkerBlock->way_prev) {
+
+		  bindex += 1;
+
+	  }
+
+	  int plruStateOld = cp->sets[set].plruState;
+	  cp->sets[set].plruState = update_plru_state(cp->assoc, bindex, plruStateOld);
+
+  }
 
   /* tag is unchanged, so hash links (if they exist) are still valid */
 
