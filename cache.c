@@ -703,10 +703,12 @@ cache_access(struct cache_t *cp,	/* cache to access */
     update_way_list(&cp->sets[set], repl, Head);
     break;
   case PLRU:
-	  int plruStateOld = cp->sets[set].plruState;
-	  int bindex = get_bindex_plru(cp->assoc, plruStateOld);
-	  repl = CACHE_BINDEX(cp, cp->sets[set].blks, bindex);
-	  cp->sets[set].plruState = update_plru_state(cp->assoc, bindex, plruStateOld);
+  	  {
+		  int plruStateOld = cp->sets[set].plruState;
+		  int bindex = get_bindex_plru(cp->assoc, plruStateOld);
+		  repl = CACHE_BINDEX(cp, cp->sets[set].blks, bindex);
+		  cp->sets[set].plruState = update_plru_state(cp->assoc, bindex, plruStateOld);
+  	  }
 	  break;
   case Random:
     {
