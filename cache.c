@@ -501,12 +501,16 @@ int get_bindex_size(int associativity) {
 
 	int bindexSize = 0;		// initialize the size to zero
 
-	// keep shifting the associativity by the counter to count the number of bits required to select all of the sets
-	// could be hard coded to return:
-	//		1 bit for 2-way associative
-	//		2 bit for 4-way associative
-	//		3 bit for 8-way associative
-	// and so on, but easy implementation in code
+	/* keep shifting the associativity by the counter to count the number of bits required to select all of the set
+	 * could be hard coded to return:
+	 *
+	 * 		1 bit for 2-way associative
+	 * 		2 bit for 4-way associative
+	 * 		3-bit for 8-way associative
+	 *
+	 * and so on, but easy implementation in code.
+	 */
+
 	while((associativity >> bindexSize) != 1) {
 
 		bindexSize += 1;	// increment the size in number of bits
@@ -514,6 +518,103 @@ int get_bindex_size(int associativity) {
 	}
 
 	return bindexSize;		// return the size of the block index
+
+}
+
+// function to get the block index based on the current PLRU state, works by working the algorithm backwards
+/*
+ * Ex: four-way associative
+ *
+ *               are all 4 lines valid?
+                   /       \
+                 yes        no, use an invalid line
+                  |
+                  |
+                  |
+             bit_0 == 0?
+              /       \
+             y         n
+            /           \
+     bit_2 == 0?    bit_1 == 0?
+       /    \          /    \
+      y      n        y      n
+     /        \      /        \
+   line_0  line_1  line_2  line_3
+ *
+ * In this case, the PLRU state is described using three bits ordered as: B2, B1, B0
+ *
+ */
+
+int get_bindex_plru(int associativity, int plruState) {
+
+	// initialize the bindex variable
+	int bindex = 0;
+	int bindexSize = get_bindex_size(associativity);
+
+	// initialize the loop counters
+	int i = 0;
+	int j = 0;
+
+	// loop through the size of the block index and run the algorithm in reverse to find the correct index
+	for (j = 0; j < bindexSize; j++) {
+
+		int temp = (plruState >> i) & 0x1;
+
+		if (temp == 1) {
+
+			i = i*2 + 2;
+
+		} else if (temp == 0) {
+
+			i = i*2 + 1;
+
+		}
+
+		temp = temp ^ 0x1;
+		bindex = (bindex << 1) | temp;
+
+	}
+
+	// return the calculated block index
+	return bindex;
+
+}
+
+// function to update the PLRU state given the PLRU state and the block index
+int update_plru_state(int associativity, int bindex, int plruState) {
+
+	// initialize calculation variables and parameters
+	int plruStateNew = plruState;
+	int bindexSize = get_bindex_size(associativity);
+	int plruStateSize = associativity - 1;
+	int plruStateBase = (1 << plruStateSize) - 1;
+	int plruStateMask = 0;
+
+	// initialize the loop counters
+	int i = 0;
+	int j = 0;
+
+	// loop through the size of the block index and run through the PLRU algorithm to determine the next PLRU state
+	for(j = 0; j < bindexSize; j++) {
+
+		int temp = (bindex >> (bindexSize - 1 - j)) & 0x1;
+
+		plruStateMask = plruStateBase & (~(1 << i));\
+		plruStateNew = (plruStateNew & plruStateMask) | (temp << i);
+
+		if(temp == 1) {
+
+			i = i*2 + 1;
+
+		} else if(temp == 0) {
+
+			i = i*2 + 2;
+
+		}
+
+	}
+
+	return plruStateNew;
 
 }
 
