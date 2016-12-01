@@ -1,9 +1,8 @@
-/bpred.o
-/cache.o
-/dlite.o
-/eio.o
-/endian.o
-/eval.o
-/libexo/exolex.c
-/libexo/exolex.o
-/libexo/libexo.o
+/config.h
+/loader.c
+/machine.c
+/machine.def
+/machine.h
+/symbol.c
+/syscall.c
+/tests
