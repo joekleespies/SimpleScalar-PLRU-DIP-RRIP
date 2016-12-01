@@ -1,0 +1,9 @@
+/bpred.o
+/cache.o
+/dlite.o
+/eio.o
+/endian.o
+/eval.o
+/libexo/exolex.c
+/libexo/exolex.o
+/libexo/libexo.o
