@@ -256,7 +256,7 @@ update_way_list(struct cache_set_t *set,	/* set contained way chain */
     panic("bogus WHERE designator");
 }
 
-
+/*-------------------------------------------------------------------------------------------*/
 /*
  * ===  FUNCTION  ======================================================================
  *         Name:  get_DIP_set_type
