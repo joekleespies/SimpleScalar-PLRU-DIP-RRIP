@@ -6,3 +6,5 @@
 /eio.o
 /endian.o
 /eval.o
+/exolex.o
+/libexo.o
