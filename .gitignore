@@ -1,3 +1,8 @@
 /.cproject
 /.project
 /bpred.o
+/cache.o
+/dlite.o
+/eio.o
+/endian.o
+/eval.o
