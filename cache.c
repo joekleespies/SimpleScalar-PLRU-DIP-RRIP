@@ -409,10 +409,10 @@ enum cache_policy			/* replacement policy enum */
 cache_char2policy(char c)		/* replacement policy as a char */
 {
   switch (c) {
-  case 'l': return LRU;
-  case 'p': return PLRU;	// add a parse option to map 'p' to the PLRU option
-  case 'r': return Random;
-  case 'f': return FIFO;
+  case 'lru': return LRU;
+  case 'plru': return PLRU;	// add a parse option to map 'p' to the PLRU option
+  case 'rand': return Random;
+  case 'fido': return FIFO;
   default: fatal("bogus replacement policy, `%c'", c);
   }
 }
