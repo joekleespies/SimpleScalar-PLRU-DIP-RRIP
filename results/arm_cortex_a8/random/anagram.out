@@ -8,7 +8,7 @@ of SimpleScalar, LLC (info@simplescalar.com).
 warning: section `.comment' ignored...
 sim: command line: ./sim-outorder -redir:sim results/arm_cortex_a8/random/anagram.out -config config/arm_cortex_a8/arm_cortex_a8_random.cfg benchmarks/instructor/anagram.alpha benchmarks/instructor/words 
 
-sim: simulation started @ Mon Dec  5 12:17:57 2016, options follow:
+sim: simulation started @ Mon Dec  5 13:13:13 2016, options follow:
 
 sim-outorder: This simulator implements a very detailed out-of-order issue
 superscalar processor with a two-level memory system and speculative
@@ -47,11 +47,11 @@ latency of all pipeline operations.
 -commit:width               4 # instruction commit B/W (insts/cycle)
 -ruu:size                  16 # register update unit (RUU) size
 -lsq:size                   8 # load/store queue (LSQ) size
--cache:dl1       dl1:64:64:4:l # l1 data cache config, i.e., {<config>|none}
+-cache:dl1       dl1:64:64:4:0:0:l # l1 data cache config, i.e., {<config>|none}
 -cache:dl1lat               1 # l1 data cache hit latency (in cycles)
--cache:dl2       ul2:512:64:8:r # l2 data cache config, i.e., {<config>|none}
+-cache:dl2       ul2:512:64:8:0:0:r # l2 data cache config, i.e., {<config>|none}
 -cache:dl2lat               8 # l2 data cache hit latency (in cycles)
--cache:il1       il1:64:64:4:l # l1 inst cache config, i.e., {<config>|dl1|dl2|none}
+-cache:il1       il1:64:64:4:0:0:l # l1 inst cache config, i.e., {<config>|dl1|dl2|none}
 -cache:il1lat               1 # l1 instruction cache hit latency (in cycles)
 -cache:il2                dl2 # l2 instruction cache config, i.e., {<config>|dl2|none}
 -cache:il2lat               8 # l2 instruction cache hit latency (in cycles)
@@ -59,8 +59,8 @@ latency of all pipeline operations.
 -cache:icompress        false # convert 64-bit inst addresses to 32-bit inst equivalents
 -mem:lat         18 2 # memory access latency (<first_chunk> <inter_chunk>)
 -mem:width                  8 # memory access bus width (in bytes)
--tlb:itlb        itlb:32:4096:1:l # instruction TLB config, i.e., {<config>|none}
--tlb:dtlb        dtlb:32:4096:1:l # data TLB config, i.e., {<config>|none}
+-tlb:itlb        itlb:32:4096:1:0:0:l # instruction TLB config, i.e., {<config>|none}
+-tlb:dtlb        dtlb:32:4096:1:0:0:l # data TLB config, i.e., {<config>|none}
 -tlb:lat                   47 # inst/data TLB miss latency (in cycles)
 -res:ialu                   2 # total number of integer ALU's available
 -res:imult                  1 # total number of integer multiplier/dividers available
@@ -104,16 +104,18 @@ latency of all pipeline operations.
 
   The cache config parameter <config> has the following format:
 
-    <name>:<nsets>:<bsize>:<assoc>:<repl>
+    <name>:<nsets>:<bsize>:<assoc>:<width_BIPCTR>:<width_PSEL>:<repl>
 
     <name>   - name of the cache being defined
     <nsets>  - number of sets in the cache
     <bsize>  - block size of the cache
     <assoc>  - associativity of the cache
-    <repl>   - block replacement strategy, 'l'-LRU, 'p'-PLRU, 'f'-FIFO, 'r'-random
+    <width_BIPCTR>	- width of BIP non-saturating counter
+    <width_PSEL> - width of PSEL counter
+    <repl>   - block replacement strategy, 'l'-LRU, 'p'-PLRU, 'd'-DIP, 'f'-FIFO, 'r'-random
 
-    Examples:   -cache:dl1 dl1:4096:32:1:l
-                -dtlb dtlb:128:4096:32:r
+    Examples:   -cache:dl1 dl1:4096:32:1:0:0:l
+                -dtlb dtlb:128:4096:32:0:0:r
 
   Cache levels can be unified by pointing a level of the instruction cache
   hierarchy at the data cache hiearchy using the "dl1" and "dl2" cache
@@ -251,6 +253,6 @@ ld_target_big_endian              0 # target executable endian-ness, non-zero if
 mem.page_count                   55 # total number of pages allocated
 mem.page_mem                   440k # total size of memory pages allocated
 mem.ptab_misses              456930 # total first level page table misses
-mem.ptab_accesses         191458890 # total page table accesses
+mem.ptab_accesses         191458786 # total page table accesses
 mem.ptab_miss_rate           0.0024 # first level page table miss rate
 
