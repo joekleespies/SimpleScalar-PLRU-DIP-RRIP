@@ -288,6 +288,7 @@ cache_create(char *name,		/* name of the cache */
 	     int balloc,		/* allocate data space for blocks? */
 	     int usize,			/* size of user data to alloc w/blks */
 	     int assoc,			/* associativity of cache */
+	     unsigned int width_RRPV,	/* width of Re-Reference Prediction Value register */
 	     enum cache_policy policy,	/* replacement policy w/in sets */
 			 int width_BIPCTR,	/* width of BIP non-saturating counter */
   		 int width_PSEL,	/* width of PSEL counter */
@@ -336,6 +337,7 @@ cache_create(char *name,		/* name of the cache */
   cp->assoc = assoc;
   cp->policy = policy;
   cp->hit_latency = hit_latency;
+  cp->width_RRPV = width_RRPV;
 
   /* initialize DIP settings */
   cp->width_BIPCTR = width_BIPCTR;
@@ -425,6 +427,10 @@ cache_create(char *name,		/* name of the cache */
 	  blk->user_data = (usize != 0
 			    ? (byte_t *)calloc(usize, sizeof(byte_t)) : NULL);
 
+  	  /* initialize RRPV register */
+	  unsigned int max_RRPV = (1 << (cp->width_RRPV)) - 1;
+	  blk->RRPV = max_RRPV;
+
 	  /* insert cache block into set hash table */
 	  if (cp->hsize)
 	    link_htab_ent(cp, &cp->sets[i], blk);
@@ -449,7 +455,8 @@ cache_char2policy(char c)		/* replacement policy as a char */
   switch (c) {
   case 'l': return LRU;
   case 'p': return PLRU;	// add a parse option to map 'p' to the PLRU option
-  case 'd': return DIP;
+  case 'd': return DIP;		// add a parse option to map 'd' to the DIP option
+  case 'R': return RRIP;	// add a parse option to map 'R' to the RRIP option
   case 'r': return Random;
   case 'f': return FIFO;
   default: fatal("bogus replacement policy, `%c'", c);
@@ -469,7 +476,8 @@ cache_config(struct cache_t *cp,	/* cache instance */
 	  cp->name, cp->assoc,
 	  cp->policy == LRU ? "LRU"
 	  : cp->policy == PLRU ? "PLRU"		/* add a configuration output for PLRU */
-	  : cp->policy == DIP ? "DIP"
+	  : cp->policy == DIP ? "DIP"		/* add a configuration output for DIP */
+	  : cp->policy == RRIP ? "RRIP"		/* add a configuration output for RRIP */
 	  : cp->policy == Random ? "Random"
 	  : cp->policy == FIFO ? "FIFO"
 	  : (abort(), ""));
@@ -813,6 +821,35 @@ cache_access(struct cache_t *cp,	/* cache to access */
 				cp->BIPCTR = 0;
 		}
 		break;
+  case RRIP:
+	{
+		unsigned int max_RRPV = (1 << (cp->width_RRPV)) - 1;
+		int victim_found = 0;
+//		int bindex = 0;
+	  do
+	  {
+      for (blk=cp->sets[set].way_head; blk; blk=blk->way_next)
+			{
+				if(blk->RRPV == max_RRPV)
+				{
+					repl = blk;
+					victim_found = 1;
+					break;
+				}
+			}
+			if(victim_found == 0)
+			{
+      	for (blk=cp->sets[set].way_head; blk; blk=blk->way_next)
+				{
+					blk->RRPV ++;
+				}
+			}
+		} while (victim_found == 0);
+  	/* update RRPV to long re-reference interval */
+//  	unsigned int max_RRPV = (1 << (cp->width_RRPV)) - 1;
+  	repl->RRPV = max_RRPV - 1;
+	}
+	break;
   case Random:
     {
       int bindex = myrand() & (cp->assoc - 1);
@@ -938,6 +975,15 @@ cache_access(struct cache_t *cp,	/* cache to access */
       update_way_list(&cp->sets[set], blk, Head);
     }
 
+  
+  	/* Frequency-Priority Policy */
+	if (cp->policy == RRIP)
+	{
+		if ( blk->RRPV > 0 ) {
+				blk->RRPV --;
+		}
+	}
+  
   /* tag is unchanged, so hash links (if they exist) are still valid */
 
   /* record the last block to hit */
@@ -967,6 +1013,12 @@ cache_access(struct cache_t *cp,	/* cache to access */
     blk->status |= CACHE_BLK_DIRTY;
 
   /* this block hit last, no change in the way list */
+
+	/* Hit-Priority Policy */
+	if (cp->policy == RRIP)
+	{
+		blk->RRPV = 0;
+	}
 
   /* tag is unchanged, so hash links (if they exist) are still valid */
 

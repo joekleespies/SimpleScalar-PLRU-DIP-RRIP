@@ -737,13 +737,13 @@ sim_reg_options(struct opt_odb_t *odb)
 
   opt_reg_string(odb, "-cache:dl1",
 		 "l1 data cache config, i.e., {<config>|none}",
-		 &cache_dl1_opt, "dl1:128:32:4:l",
+		 &cache_dl1_opt, "dl1:128:32:4:0:0:0:l",
 		 /* print */TRUE, NULL);
 
   opt_reg_note(odb,
 "  The cache config parameter <config> has the following format:\n"
 "\n"
-"    <name>:<nsets>:<bsize>:<assoc>:<width_BIPCTR>:<width_PSEL>:<repl>\n"
+"    <name>:<nsets>:<bsize>:<assoc>:<width_BIPCTR>:<width_PSEL>:<width_RRPV>:<repl>\n"
 "\n"
 "    <name>   - name of the cache being defined\n"
 "    <nsets>  - number of sets in the cache\n"
@@ -751,10 +751,12 @@ sim_reg_options(struct opt_odb_t *odb)
 "    <assoc>  - associativity of the cache\n"
 "    <width_BIPCTR>	- width of BIP non-saturating counter\n"
 "    <width_PSEL> - width of PSEL counter\n"
-"    <repl>   - block replacement strategy, 'l'-LRU, 'p'-PLRU, 'd'-DIP, 'f'-FIFO, 'r'-random\n"
+"	 <width_RRPV> - width of Re-Reference Prediction Value register\n"
+"    <repl>   - block replacement strategy, 'l'-LRU, 'p'-PLRU, 'd'-DIP, 'R'-RRIP, 'f'-FIFO, 'r'-random\n"
 "\n"
-"    Examples:   -cache:dl1 dl1:4096:32:1:0:0:l\n"
-"                -dtlb dtlb:128:4096:32:0:0:r\n"
+"    Examples:   -cache:dl1 dl1:4096:32:1:0:0:0:l\n"
+"                -dtlb dtlb:128:4096:32:0:0:0:r\n"
+"				 -cache:dl2 dl2:512:64:8:0:0:1:R\n"
 	       );
 
   opt_reg_int(odb, "-cache:dl1lat",
@@ -764,7 +766,7 @@ sim_reg_options(struct opt_odb_t *odb)
 
   opt_reg_string(odb, "-cache:dl2",
 		 "l2 data cache config, i.e., {<config>|none}",
-		 &cache_dl2_opt, "ul2:1024:64:4:l",
+		 &cache_dl2_opt, "ul2:1024:64:4:0:0:0:l",
 		 /* print */TRUE, NULL);
 
   opt_reg_int(odb, "-cache:dl2lat",
@@ -774,7 +776,7 @@ sim_reg_options(struct opt_odb_t *odb)
 
   opt_reg_string(odb, "-cache:il1",
 		 "l1 inst cache config, i.e., {<config>|dl1|dl2|none}",
-		 &cache_il1_opt, "il1:512:32:1:l",
+		 &cache_il1_opt, "il1:512:32:1:0:0:0:l",
 		 /* print */TRUE, NULL);
 
   opt_reg_note(odb,
@@ -783,12 +785,12 @@ sim_reg_options(struct opt_odb_t *odb)
 "  configuration arguments.  Most sensible combinations are supported, e.g.,\n"
 "\n"
 "    A unified l2 cache (il2 is pointed at dl2):\n"
-"      -cache:il1 il1:128:64:1:l -cache:il2 dl2\n"
-"      -cache:dl1 dl1:256:32:1:l -cache:dl2 ul2:1024:64:2:l\n"
+"      -cache:il1 il1:128:64:1:0:0:0:l -cache:il2 dl2\n"
+"      -cache:dl1 dl1:256:32:1:0:0:0:l -cache:dl2 ul2:1024:64:2:l\n"
 "\n"
 "    Or, a fully unified cache hierarchy (il1 pointed at dl1):\n"
 "      -cache:il1 dl1\n"
-"      -cache:dl1 ul1:256:32:1:l -cache:dl2 ul2:1024:64:2:l\n"
+"      -cache:dl1 ul1:256:32:1:0:0:0:l -cache:dl2 ul2:1024:64:2:l\n"
 	       );
 
   opt_reg_int(odb, "-cache:il1lat",
@@ -883,8 +885,9 @@ sim_check_options(struct opt_odb_t *odb,        /* options database */
 {
   char name[128], c;
   int nsets, bsize, assoc;
-	int width_BIPCTR;	/* width of BIP non-saturating counter */
+  int width_BIPCTR;	/* width of BIP non-saturating counter */
   int width_PSEL;		/* width of PSEL counter */
+  unsigned int width_RRPV;	/* width of Re-Reference Prediction Value register */
 
   if (fastfwd_count < 0 || fastfwd_count >= 2147483647)
     fatal("bad fast forward count: %d", fastfwd_count);
@@ -1015,12 +1018,12 @@ sim_check_options(struct opt_odb_t *odb,        /* options database */
     }
   else /* dl1 is defined */
     {
-      if (sscanf(cache_dl1_opt, "%[^:]:%d:%d:%d:%d:%d:%c",
-		 name, &nsets, &bsize, &assoc, &width_BIPCTR, &width_PSEL, &c) != 7)
-	fatal("bad l1 D-cache parms: <name>:<nsets>:<bsize>:<assoc>:<width_BIPCTR>:<width_PSEL>:<repl>");
+      if (sscanf(cache_dl1_opt, "%[^:]:%d:%d:%d:%d:%d:%d:%c",
+		 name, &nsets, &bsize, &assoc, &width_BIPCTR, &width_PSEL, &width_RRPV, &c) != 8)
+	fatal("bad l1 D-cache parms: <name>:<nsets>:<bsize>:<assoc>:<width_BIPCTR>:<width_PSEL>:<width_RRPV>:<repl>");
       cache_dl1 = cache_create(name, nsets, bsize, /* balloc */FALSE,
 			       /* usize */0, assoc, cache_char2policy(c),
-						 width_BIPCTR, width_PSEL,
+						 width_BIPCTR, width_PSEL, width_RRPV,
 			       dl1_access_fn, /* hit lat */cache_dl1_lat);
 
       /* is the level 2 D-cache defined? */
@@ -1028,13 +1031,13 @@ sim_check_options(struct opt_odb_t *odb,        /* options database */
 	cache_dl2 = NULL;
       else
 	{
-	  if (sscanf(cache_dl2_opt, "%[^:]:%d:%d:%d:%d:%d:%c",
-		 name, &nsets, &bsize, &assoc, &width_BIPCTR, &width_PSEL, &c) != 7)
+	  if (sscanf(cache_dl2_opt, "%[^:]:%d:%d:%d:%d:%d:%d:%c",
+		 name, &nsets, &bsize, &assoc, &width_BIPCTR, &width_PSEL, &width_RRPV, &c) != 8)
 	    fatal("bad l2 D-cache parms: "
-		  "<name>:<nsets>:<bsize>:<assoc>:<width_BIPCTR>:<width_PSEL>:<repl>");
+		  "<name>:<nsets>:<bsize>:<assoc>:<width_BIPCTR>:<width_PSEL>:<width_RRPV>:<repl>");
 	  cache_dl2 = cache_create(name, nsets, bsize, /* balloc */FALSE,
 				   /* usize */0, assoc, cache_char2policy(c),
-						 width_BIPCTR, width_PSEL,
+						 width_BIPCTR, width_PSEL, width_RRPV,
 				   dl2_access_fn, /* hit lat */cache_dl2_lat);
 	}
     }
@@ -1073,12 +1076,12 @@ sim_check_options(struct opt_odb_t *odb,        /* options database */
     }
   else /* il1 is defined */
     {
-      if (sscanf(cache_il1_opt, "%[^:]:%d:%d:%d:%d:%d:%c",
-		 name, &nsets, &bsize, &assoc, &width_BIPCTR, &width_PSEL, &c) != 7)
-	fatal("bad l1 I-cache parms: <name>:<nsets>:<bsize>:<assoc>:<width_BIPCTR>:<width_PSEL>:<repl>");
+      if (sscanf(cache_il1_opt, "%[^:]:%d:%d:%d:%d:%d:%d:%c",
+		 name, &nsets, &bsize, &assoc, &width_BIPCTR, &width_PSEL, &width_RRPV, &c) != 8)
+	fatal("bad l1 I-cache parms: <name>:<nsets>:<bsize>:<assoc>:<width_BIPCTR>:<width_PSEL>:<width_RRPV>:<repl>");
       cache_il1 = cache_create(name, nsets, bsize, /* balloc */FALSE,
 			       /* usize */0, assoc, cache_char2policy(c),
-						 width_BIPCTR, width_PSEL,
+						 width_BIPCTR, width_PSEL, width_RRPV,
 			       il1_access_fn, /* hit lat */cache_il1_lat);
 
       /* is the level 2 D-cache defined? */
@@ -1092,13 +1095,13 @@ sim_check_options(struct opt_odb_t *odb,        /* options database */
 	}
       else
 	{
-	  if (sscanf(cache_il2_opt, "%[^:]:%d:%d:%d:%d:%d:%c",
-		 name, &nsets, &bsize, &assoc, &width_BIPCTR, &width_PSEL, &c) != 7)
+	  if (sscanf(cache_il2_opt, "%[^:]:%d:%d:%d:%d:%d:%d:%c",
+		 name, &nsets, &bsize, &assoc, &width_BIPCTR, &width_PSEL, &width_RRPV, &c) != 8)
 	    fatal("bad l2 I-cache parms: "
-		  "<name>:<nsets>:<bsize>:<assoc>:<width_BIPCTR>:<width_PSEL>:<repl>");
+		  "<name>:<nsets>:<bsize>:<assoc>:<width_BIPCTR>:<width_PSEL>:<width_RRPV>:<repl>");
 	  cache_il2 = cache_create(name, nsets, bsize, /* balloc */FALSE,
 				   /* usize */0, assoc, cache_char2policy(c),
-						 width_BIPCTR, width_PSEL,
+						 width_BIPCTR, width_PSEL, width_RRPV,
 				   il2_access_fn, /* hit lat */cache_il2_lat);
 	}
     }
@@ -1108,13 +1111,13 @@ sim_check_options(struct opt_odb_t *odb,        /* options database */
     itlb = NULL;
   else
     {
-      if (sscanf(itlb_opt, "%[^:]:%d:%d:%d:%d:%d:%c",
-		 name, &nsets, &bsize, &assoc, &width_BIPCTR, &width_PSEL, &c) != 7)
-	fatal("bad TLB parms: <name>:<nsets>:<page_size>:<assoc>:<width_BIPCTR>:<width_PSEL>:<repl>");
+      if (sscanf(itlb_opt, "%[^:]:%d:%d:%d:%d:%d:%d:%c",
+		 name, &nsets, &bsize, &assoc, &width_BIPCTR, &width_PSEL, &width_RRPV, &c) != 8)
+	fatal("bad TLB parms: <name>:<nsets>:<page_size>:<assoc>:<width_BIPCTR>:<width_PSEL>:<width_RRPV>:<repl>");
       itlb = cache_create(name, nsets, bsize, /* balloc */FALSE,
 			  /* usize */sizeof(md_addr_t), assoc,
 			  cache_char2policy(c),
-				width_BIPCTR, width_PSEL,
+				width_BIPCTR, width_PSEL, width_RRPV,
 				itlb_access_fn,
 			  /* hit latency */1);
     }
@@ -1124,13 +1127,13 @@ sim_check_options(struct opt_odb_t *odb,        /* options database */
     dtlb = NULL;
   else
     {
-      if (sscanf(dtlb_opt, "%[^:]:%d:%d:%d:%d:%d:%c",
-		 name, &nsets, &bsize, &assoc, &width_BIPCTR, &width_PSEL, &c) != 7)
-	fatal("bad TLB parms: <name>:<nsets>:<page_size>:<assoc>:<repl>:<width_BIPCTR>:<width_PSEL>");
+      if (sscanf(dtlb_opt, "%[^:]:%d:%d:%d:%d:%d:%d:%c",
+		 name, &nsets, &bsize, &assoc, &width_BIPCTR, &width_PSEL, &width_RRPV, &c) != 8)
+	fatal("bad TLB parms: <name>:<nsets>:<page_size>:<assoc>:<width_BIPCTR>:<width_PSEL>:<width_RRPV>:<repl>");
       dtlb = cache_create(name, nsets, bsize, /* balloc */FALSE,
 			  /* usize */sizeof(md_addr_t), assoc,
 			  cache_char2policy(c),
-				width_BIPCTR, width_PSEL,
+				width_BIPCTR, width_PSEL, width_RRPV,
 				dtlb_access_fn,
 			  /* hit latency */1);
     }

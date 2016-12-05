@@ -103,6 +103,7 @@ enum cache_policy {
   LRU,		/* replace least recently used block (perfect LRU) */
   PLRU,		// replace least recently used block (pseudo LRU)
   DIP,		/* Dynamic Insertion Policy */
+  RRIP,		/* RRIP the dream */
   Random,	/* replace a random block */
   FIFO		/* replace the oldest block in the set */
 };
@@ -136,6 +137,8 @@ struct cache_blk_t
 				   is set when a miss fetch is initiated */
   byte_t *user_data;		/* pointer to user defined data, e.g.,
 				   pre-decode data or physical page address */
+  /* used for Static RRIP */
+  unsigned int RRPV;	/* Re-Reference Prediction Value */
   /* DATA should be pointer-aligned due to preceeding field */
   /* NOTE: this is a variable-size tail array, this must be the LAST field
      defined in this structure! */
@@ -169,7 +172,7 @@ struct cache_t
   int assoc;			/* cache associativity */
   enum cache_policy policy;	/* cache replacement policy */
   unsigned int hit_latency;	/* cache hit latency */
-
+  unsigned int width_RRPV;	/* width of Re-Reference Prediction Value register */
   /* parameters for DIP (Dynamic Insertion Policy) */
   int BIPCTR;			/* BIP(Bimodal Insertion Policy) non-saturating counter */
   int width_BIPCTR;		/* width of BIP non-saturating counter */
@@ -238,6 +241,7 @@ cache_create(char *name,		/* name of the cache */
 	     int balloc,		/* allocate data space for blocks? */
 	     int usize,			/* size of user data to alloc w/blks */
 	     int assoc,			/* associativity of cache */
+	     unsigned int width_RRPV,	/* width of Re-Reference Prediction Value register */
 	     enum cache_policy policy,	/* replacement policy w/in sets */
 			 int width_BIPCTR,	/* width of BIP non-saturating counter */
   		 int width_PSEL,	/* width of PSEL counter */
