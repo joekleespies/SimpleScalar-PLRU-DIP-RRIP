@@ -101,7 +101,7 @@
 /* cache replacement policy */
 enum cache_policy {
   LRU,		/* replace least recently used block (perfect LRU) */
-	DIP,		/* Dynamic Insertion Policy */
+  DIP,		/* Dynamic Insertion Policy */
   Random,	/* replace a random block */
   FIFO		/* replace the oldest block in the set */
 };
