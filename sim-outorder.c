@@ -751,7 +751,7 @@ sim_reg_options(struct opt_odb_t *odb)
 "    <assoc>  - associativity of the cache\n"
 "    <width_BIPCTR>	- width of BIP non-saturating counter\n"
 "    <width_PSEL> - width of PSEL counter\n"
-"    <repl>   - block replacement strategy, 'l'-LRU, 'd'-DIP, 'f'-FIFO, 'r'-random\n"
+"    <repl>   - block replacement strategy, 'l'-LRU, 'p'-PLRU, 'd'-DIP, 'f'-FIFO, 'r'-random\n"
 "\n"
 "    Examples:   -cache:dl1 dl1:4096:32:1:0:0:l\n"
 "                -dtlb dtlb:128:4096:32:0:0:r\n"
