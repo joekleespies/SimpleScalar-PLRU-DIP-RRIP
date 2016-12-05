@@ -6,7 +6,7 @@ c***controls printing of the progress of iterations: ipr   inorm
                                                       1     1
 c
 c***the maximum no. of pseudo-time steps to be performed: itmax
-                                                           350
+                                                           3
 c
 c***magnitude of the time step: dt
                               1.5e-03
