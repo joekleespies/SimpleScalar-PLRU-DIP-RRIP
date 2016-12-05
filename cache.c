@@ -264,6 +264,7 @@ cache_create(char *name,		/* name of the cache */
 	     int balloc,		/* allocate data space for blocks? */
 	     int usize,			/* size of user data to alloc w/blks */
 	     int assoc,			/* associativity of cache */
+		 unsigned int width_RRPV,	/* width of Re-Reference Prediction Value register */
 	     enum cache_policy policy,	/* replacement policy w/in sets */
 	     /* block access function, see description w/in struct cache def */
 	     unsigned int (*blk_access_fn)(enum mem_cmd cmd,
@@ -310,6 +311,7 @@ cache_create(char *name,		/* name of the cache */
   cp->assoc = assoc;
   cp->policy = policy;
   cp->hit_latency = hit_latency;
+  cp->width_RRPV = width_RRPV;
 
   /* miss/replacement functions */
   cp->blk_access_fn = blk_access_fn;
@@ -369,9 +371,6 @@ cache_create(char *name,		/* name of the cache */
 	 during random replacement selection) */
       cp->sets[i].blks = CACHE_BINDEX(cp, cp->data, bindex);
       
-      int plruStateSize = cp->assoc - 1; // calculate the size (width in bits) of the PLRU state for each set, which is the associativity minus 1
-      cp->sets[i].plruState = (1 << plruStateSize) - 1; // set the PLRU state for each set, shift one and subtract to ensure the state size is correct
-
       /* link the data blocks into ordered way chain and hash table bucket
          chains, if hash table exists */
       for (j=0; j<assoc; j++)
@@ -386,6 +385,10 @@ cache_create(char *name,		/* name of the cache */
 	  blk->ready = 0;
 	  blk->user_data = (usize != 0
 			    ? (byte_t *)calloc(usize, sizeof(byte_t)) : NULL);
+
+	  /* initialize RRPV register */
+	  unsigned int max_RRPV = (1 << (cp->width_RRPV)) - 1;
+	  blk->RRPV = max_RRPV;
 
 	  /* insert cache block into set hash table */
 	  if (cp->hsize)
@@ -410,9 +413,9 @@ cache_char2policy(char c)		/* replacement policy as a char */
 {
   switch (c) {
   case 'l': return LRU;
-  case 'p': return PLRU;	// add a parse option to map 'p' to the PLRU option
   case 'r': return Random;
   case 'f': return FIFO;
+  case 'R': return RRIP;
   default: fatal("bogus replacement policy, `%c'", c);
   }
 }
@@ -429,9 +432,9 @@ cache_config(struct cache_t *cp,	/* cache instance */
 	  "cache: %s: %d-way, `%s' replacement policy, write-back\n",
 	  cp->name, cp->assoc,
 	  cp->policy == LRU ? "LRU"
-	  : cp->policy == PLRU ? "PLRU"		/* add a configuration output for PLRU */
 	  : cp->policy == Random ? "Random"
 	  : cp->policy == FIFO ? "FIFO"
+	  : cp->policy == RRIP ? "RRIP"
 	  : (abort(), ""));
 }
 
@@ -494,128 +497,6 @@ cache_stats(struct cache_t *cp,		/* cache instance */
 	  cp->name,
 	  (double)cp->misses/sum, (double)(double)cp->replacements/sum,
 	  (double)cp->invalidations/sum);
-}
-
-// function to get the size (width in bits) of the block index
-int get_bindex_size(int associativity) {
-
-	int bindexSize = 0;		// initialize the size to zero
-
-	/* keep shifting the associativity by the counter to count the number of bits required to select all of the set
-	 * could be hard coded to return:
-	 *
-	 * 		1 bit for 2-way associative
-	 * 		2 bit for 4-way associative
-	 * 		3-bit for 8-way associative
-	 *
-	 * and so on, but easy implementation in code.
-	 */
-
-	while((associativity >> bindexSize) != 1) {
-
-		bindexSize += 1;	// increment the size in number of bits
-
-	}
-
-	return bindexSize;		// return the size of the block index
-
-}
-
-// function to get the block index based on the current PLRU state, works by working the algorithm backwards
-/*
- * Ex: four-way associative
- *
- *               are all 4 lines valid?
-                   /       \
-                 yes        no, use an invalid line
-                  |
-                  |
-                  |
-             bit_0 == 0?
-              /       \
-             y         n
-            /           \
-     bit_2 == 0?    bit_1 == 0?
-       /    \          /    \
-      y      n        y      n
-     /        \      /        \
-   line_0  line_1  line_2  line_3
- *
- * In this case, the PLRU state is described using three bits ordered as: B2, B1, B0
- *
- */
-
-int get_bindex_plru(int associativity, int plruState) {
-
-	// initialize the bindex variable
-	int bindex = 0;
-	int bindexSize = get_bindex_size(associativity);
-
-	// initialize the loop counters
-	int i = 0;
-	int j = 0;
-
-	// loop through the size of the block index and run the algorithm in reverse to find the correct index
-	for (j = 0; j < bindexSize; j++) {
-
-		int temp = (plruState >> i) & 0x1;
-
-		if (temp == 1) {
-
-			i = i*2 + 2;
-
-		} else if (temp == 0) {
-
-			i = i*2 + 1;
-
-		}
-
-		temp = temp ^ 0x1;
-		bindex = (bindex << 1) | temp;
-
-	}
-
-	// return the calculated block index
-	return bindex;
-
-}
-
-// function to update the PLRU state given the PLRU state and the block index
-int update_plru_state(int associativity, int bindex, int plruState) {
-
-	// initialize calculation variables and parameters
-	int plruStateNew = plruState;
-	int bindexSize = get_bindex_size(associativity);
-	int plruStateSize = associativity - 1;
-	int plruStateBase = (1 << plruStateSize) - 1;
-	int plruStateMask = 0;
-
-	// initialize the loop counters
-	int i = 0;
-	int j = 0;
-
-	// loop through the size of the block index and run through the PLRU algorithm to determine the next PLRU state
-	for(j = 0; j < bindexSize; j++) {
-
-		int temp = (bindex >> (bindexSize - 1 - j)) & 0x1;
-
-		plruStateMask = plruStateBase & (~(1 << i));\
-		plruStateNew = (plruStateNew & plruStateMask) | (temp << i);
-
-		if(temp == 1) {
-
-			i = i*2 + 1;
-
-		} else if(temp == 0) {
-
-			i = i*2 + 2;
-
-		}
-
-	}
-
-	return plruStateNew;
-
 }
 
 /* access a cache, perform a CMD operation on cache CP at address ADDR,
@@ -702,20 +583,41 @@ cache_access(struct cache_t *cp,	/* cache to access */
     repl = cp->sets[set].way_tail;
     update_way_list(&cp->sets[set], repl, Head);
     break;
-  case PLRU:
-  	  {
-		  int plruStateOld = cp->sets[set].plruState;
-		  int bindex = get_bindex_plru(cp->assoc, plruStateOld);
-		  repl = CACHE_BINDEX(cp, cp->sets[set].blks, bindex);
-		  cp->sets[set].plruState = update_plru_state(cp->assoc, bindex, plruStateOld);
-  	  }
-	  break;
   case Random:
     {
       int bindex = myrand() & (cp->assoc - 1);
       repl = CACHE_BINDEX(cp, cp->sets[set].blks, bindex);
     }
     break;
+  case RRIP:
+	{
+		unsigned int max_RRPV = (1 << (cp->width_RRPV)) - 1;
+		int victim_found = 0;
+//		int bindex = 0;
+	  do
+	  {
+      for (blk=cp->sets[set].way_head; blk; blk=blk->way_next)
+			{
+				if(blk->RRPV == max_RRPV)
+				{
+					repl = blk;
+					victim_found = 1;
+					break;
+				}
+			}
+			if(victim_found == 0)
+			{
+      	for (blk=cp->sets[set].way_head; blk; blk=blk->way_next)
+				{
+					blk->RRPV ++;
+				}
+			}
+		} while (victim_found == 0);
+  	/* update RRPV to long re-reference interval */
+//  	unsigned int max_RRPV = (1 << (cp->width_RRPV)) - 1;
+  	repl->RRPV = max_RRPV - 1;
+	}
+	break;
   default:
     panic("bogus replacement policy");
   }
@@ -810,23 +712,13 @@ cache_access(struct cache_t *cp,	/* cache to access */
       update_way_list(&cp->sets[set], blk, Head);
     }
 
-  // add the policy handling for the PLRU policy
-  if(cp->policy == PLRU) {
-
-	  // initialize the bindex variable and walkerBlock pointer
-	  int bindex = 0;
-	  struct cache_blk_t *walkerBlock = blk;
-
-	  for(walkerBlock = blk; walkerBlock != NULL; walkerBlock = walkerBlock->way_prev) {
-
-		  bindex += 1;
-
-	  }
-
-	  int plruStateOld = cp->sets[set].plruState;
-	  cp->sets[set].plruState = update_plru_state(cp->assoc, bindex, plruStateOld);
-
-  }
+	/* Frequency-Priority Policy */
+	if (cp->policy == RRIP)
+	{
+		if ( blk->RRPV > 0 ) {
+				blk->RRPV --;
+		}
+	}
 
   /* tag is unchanged, so hash links (if they exist) are still valid */
 
@@ -857,6 +749,12 @@ cache_access(struct cache_t *cp,	/* cache to access */
     blk->status |= CACHE_BLK_DIRTY;
 
   /* this block hit last, no change in the way list */
+
+	/* Hit-Priority Policy */
+	if (cp->policy == RRIP)
+	{
+		blk->RRPV = 0;
+	}
 
   /* tag is unchanged, so hash links (if they exist) are still valid */
 
