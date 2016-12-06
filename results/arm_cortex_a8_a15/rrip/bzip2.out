@@ -6,9 +6,9 @@ entity, or for any commercial purpose, without the prior written permission
 of SimpleScalar, LLC (info@simplescalar.com).
 
 warning: section `.comment' ignored...
-sim: command line: ./sim-outorder -max:inst 100000000 -fastfwd 20000 -redir:sim results/arm_cortex_a8_a15/dip/bzip2.out -config config/arm_cortex_a8_a15/arm_cortex_a8_a15_dip.cfg benchmarks/spec-cpu2000/bzip2/bzip200.peak.ev6 benchmarks/spec-cpu2000/bzip2/bzip2.lgred.graphic 1 
+sim: command line: ./sim-outorder -max:inst 100000000 -fastfwd 20000 -redir:sim results/arm_cortex_a8_a15/rrip/bzip2.out -config config/arm_cortex_a8_a15/arm_cortex_a8_a15_rrip.cfg benchmarks/spec-cpu2000/bzip2/bzip200.peak.ev6 benchmarks/spec-cpu2000/bzip2/bzip2.lgred.graphic 1 
 
-sim: simulation started @ Tue Dec  6 07:08:08 2016, options follow:
+sim: simulation started @ Tue Dec  6 14:14:58 2016, options follow:
 
 sim-outorder: This simulator implements a very detailed out-of-order issue
 superscalar processor with a two-level memory system and speculative
@@ -24,7 +24,7 @@ latency of all pipeline operations.
 -seed                       1 # random number generator seed (0 for timer seed)
 # -q                    false # initialize and terminate immediately
 # -chkpt               <null> # restore EIO trace execution from <fname>
-# -redir:sim     results/arm_cortex_a8_a15/dip/bzip2.out # redirect simulator output to file (non-interactive only)
+# -redir:sim     results/arm_cortex_a8_a15/rrip/bzip2.out # redirect simulator output to file (non-interactive only)
 # -redir:prog          <null> # redirect simulated program output to file
 -nice                       0 # simulator scheduling priority
 -max:inst           100000000 # maximum number of inst's to execute
@@ -47,11 +47,11 @@ latency of all pipeline operations.
 -commit:width               4 # instruction commit B/W (insts/cycle)
 -ruu:size                  16 # register update unit (RUU) size
 -lsq:size                   8 # load/store queue (LSQ) size
--cache:dl1       dl1:128:64:2:0:0:l # l1 data cache config, i.e., {<config>|none}
+-cache:dl1       dl1:128:64:2:0:l # l1 data cache config, i.e., {<config>|none}
 -cache:dl1lat               1 # l1 data cache hit latency (in cycles)
--cache:dl2       ul2:1024:64:16:0:0:d # l2 data cache config, i.e., {<config>|none}
+-cache:dl2       ul2:1024:64:16:3:R # l2 data cache config, i.e., {<config>|none}
 -cache:dl2lat               8 # l2 data cache hit latency (in cycles)
--cache:il1       il1:128:64:2:0:0:l # l1 inst cache config, i.e., {<config>|dl1|dl2|none}
+-cache:il1       il1:128:64:2:0:l # l1 inst cache config, i.e., {<config>|dl1|dl2|none}
 -cache:il1lat               1 # l1 instruction cache hit latency (in cycles)
 -cache:il2                dl2 # l2 instruction cache config, i.e., {<config>|dl2|none}
 -cache:il2lat               8 # l2 instruction cache hit latency (in cycles)
@@ -59,8 +59,8 @@ latency of all pipeline operations.
 -cache:icompress        false # convert 64-bit inst addresses to 32-bit inst equivalents
 -mem:lat         18 2 # memory access latency (<first_chunk> <inter_chunk>)
 -mem:width                  8 # memory access bus width (in bytes)
--tlb:itlb        itlb:32:4096:1:0:0:l # instruction TLB config, i.e., {<config>|none}
--tlb:dtlb        dtlb:32:4096:1:0:0:l # data TLB config, i.e., {<config>|none}
+-tlb:itlb        itlb:32:4096:1:0:l # instruction TLB config, i.e., {<config>|none}
+-tlb:dtlb        dtlb:32:4096:1:0:l # data TLB config, i.e., {<config>|none}
 -tlb:lat                   47 # inst/data TLB miss latency (in cycles)
 -res:ialu                   2 # total number of integer ALU's available
 -res:imult                  1 # total number of integer multiplier/dividers available
@@ -104,30 +104,30 @@ latency of all pipeline operations.
 
   The cache config parameter <config> has the following format:
 
-    <name>:<nsets>:<bsize>:<assoc>:<width_BIPCTR>:<width_PSEL>:<repl>
+    <name>:<nsets>:<bsize>:<assoc>:<width_RRPV>:<repl>
 
     <name>   - name of the cache being defined
     <nsets>  - number of sets in the cache
     <bsize>  - block size of the cache
     <assoc>  - associativity of the cache
-    <width_BIPCTR>	- width of BIP non-saturating counter
-    <width_PSEL> - width of PSEL counter
-    <repl>   - block replacement strategy, 'l'-LRU, 'd'-DIP, 'f'-FIFO, 'r'-random
+    <width_RRPV>  - width of Re-Reference Prediction Value register
+    <repl>   - block replacement strategy, 'l'-LRU, 'f'-FIFO, 'r'-random
 
-    Examples:   -cache:dl1 dl1:4096:32:1:0:0:l
-                -dtlb dtlb:128:4096:32:0:0:r
+    Examples:   -cache:dl1 dl1:4096:32:1:0:l
+                -dtlb dtlb:128:4096:32:0:r
+                -cache:dl2 dl2:512:64:8:1:R
 
   Cache levels can be unified by pointing a level of the instruction cache
   hierarchy at the data cache hiearchy using the "dl1" and "dl2" cache
   configuration arguments.  Most sensible combinations are supported, e.g.,
 
     A unified l2 cache (il2 is pointed at dl2):
-      -cache:il1 il1:128:64:1:l -cache:il2 dl2
-      -cache:dl1 dl1:256:32:1:l -cache:dl2 ul2:1024:64:2:l
+      -cache:il1 il1:128:64:1:0:l -cache:il2 dl2
+      -cache:dl1 dl1:256:32:1:0:l -cache:dl2 ul2:1024:64:2:0:l
 
     Or, a fully unified cache hierarchy (il1 pointed at dl1):
       -cache:il1 dl1
-      -cache:dl1 ul1:256:32:1:l -cache:dl2 ul2:1024:64:2:l
+      -cache:dl1 ul1:256:32:1:0:l -cache:dl2 ul2:1024:64:2:0:l
 
 
 
@@ -253,6 +253,6 @@ ld_target_big_endian              0 # target executable endian-ness, non-zero if
 mem.page_count                  478 # total number of pages allocated
 mem.page_mem                  3824k # total size of memory pages allocated
 mem.ptab_misses                 571 # total first level page table misses
-mem.ptab_accesses         629518540 # total page table accesses
+mem.ptab_accesses         629518542 # total page table accesses
 mem.ptab_miss_rate           0.0000 # first level page table miss rate
 
