@@ -103,7 +103,9 @@ enum cache_policy {
   LRU,		/* replace least recently used block (perfect LRU) */
   Random,	/* replace a random block */
   FIFO,		/* replace the oldest block in the set */
-  RRIP		/* Re-Reference Interval Prediction */
+//----------------------------------------------------------------------------------------
+// here we add the new policy to the list
+  RRIP
 };
 
 /* block status values */
@@ -159,7 +161,10 @@ struct cache_t
   int assoc;			/* cache associativity */
   enum cache_policy policy;	/* cache replacement policy */
   unsigned int hit_latency;	/* cache hit latency */
-  unsigned int width_RRPV;	/* width of Re-Reference Prediction Value register */
+  
+//---------------------------------------------------------------------------------------------
+//Creating the varaible for the RRPV counter
+  unsigned int RRPVC;
 
   /* miss/replacement handler, read/write BSIZE bytes starting at BADDR
      from/into cache block BLK, returns the latency of the operation
@@ -223,7 +228,9 @@ cache_create(char *name,		/* name of the cache */
 	     int balloc,		/* allocate data space for blocks? */
 	     int usize,			/* size of user data to alloc w/blks */
 	     int assoc,			/* associativity of cache */
-		 unsigned int width_RRPV,	/* width of Re-Reference Prediction Value register */
+//--------------------------------------------------------------------------------------------------
+// assigning the variable we need for the rrip policy
+		 unsigned int RRPVC,	
 	     enum cache_policy policy,	/* replacement policy w/in sets */
 	     /* block access function, see description w/in struct cache def */
 	     unsigned int (*blk_access_fn)(enum mem_cmd cmd,
