@@ -743,13 +743,14 @@ sim_reg_options(struct opt_odb_t *odb)
   opt_reg_note(odb,
 "  The cache config parameter <config> has the following format:\n"
 "\n"
-"    <name>:<nsets>:<bsize>:<assoc>:<width_RRPV>:<repl>\n"
+"    <name>:<nsets>:<bsize>:<assoc>:<RRPVC>:<repl>\n"
 "\n"
 "    <name>   - name of the cache being defined\n"
 "    <nsets>  - number of sets in the cache\n"
 "    <bsize>  - block size of the cache\n"
 "    <assoc>  - associativity of the cache\n"
-"    <width_RRPV>  - width of Re-Reference Prediction Value register\n"
+//-------------------------------------------------------------------------------
+"    <RRPVC>  - Counter of Re-Reference Insertion Policy comparisons\n"
 "    <repl>   - block replacement strategy, 'l'-LRU, 'f'-FIFO, 'r'-random\n"
 "\n"
 "    Examples:   -cache:dl1 dl1:4096:32:1:0:l\n"
@@ -883,7 +884,8 @@ sim_check_options(struct opt_odb_t *odb,        /* options database */
 {
   char name[128], c;
   int nsets, bsize, assoc;
-	unsigned int width_RRPV;	/* width of Re-Reference Prediction Value register */
+//-----------------------------------------------------------------------------------------
+	unsigned int RRPVC;	/* counter for Re-Reference insertion policy comparison */
 
   if (fastfwd_count < 0 || fastfwd_count >= 2147483647)
     fatal("bad fast forward count: %d", fastfwd_count);
@@ -1014,12 +1016,14 @@ sim_check_options(struct opt_odb_t *odb,        /* options database */
     }
   else /* dl1 is defined */
     {
+//----------------------------------------------------------------------------------------------
+//change the input parameter conditions to grab the newly needed value
       if (sscanf(cache_dl1_opt, "%[^:]:%d:%d:%d:%d:%c",
-		 name, &nsets, &bsize, &assoc, &width_RRPV, &c) != 6)
-	fatal("bad l1 D-cache parms: <name>:<nsets>:<bsize>:<assoc>:<width_RRPV>:<repl>");
+		 name, &nsets, &bsize, &assoc, &wRRPVC, &c) != 6)
+	fatal("bad l1 D-cache parms: <name>:<nsets>:<bsize>:<assoc>:<RRPVC>:<repl>");
       cache_dl1 = cache_create(name, nsets, bsize, /* balloc */FALSE,
-			       /* usize */0, assoc,
-				   width_RRPV,
+			       /* usize */0, assoc, 
+				   RRPVC,
 				   cache_char2policy(c),
 			       dl1_access_fn, /* hit lat */cache_dl1_lat);
 
@@ -1028,15 +1032,17 @@ sim_check_options(struct opt_odb_t *odb,        /* options database */
 	cache_dl2 = NULL;
       else
 	{
+//change the input parameter conditions to grab the newly needed value
 	  if (sscanf(cache_dl2_opt, "%[^:]:%d:%d:%d:%d:%c",
-		     name, &nsets, &bsize, &assoc, &width_RRPV, &c) != 6)
+		     name, &nsets, &bsize, &assoc, &RRPVC, &c) != 6)
 	    fatal("bad l2 D-cache parms: "
-		  "<name>:<nsets>:<bsize>:<assoc>:<width_RRPV>:<repl>");
+		  "<name>:<nsets>:<bsize>:<assoc>:<RRPVC>:<repl>");
 	  cache_dl2 = cache_create(name, nsets, bsize, /* balloc */FALSE,
-				   /* usize */0, assoc,
-				   width_RRPV,
+				   /* usize */0, assoc, 
+				   RRPVC,
 				   cache_char2policy(c),
 				   dl2_access_fn, /* hit lat */cache_dl2_lat);
+//----------------------------------------------------------------------------------------------
 	}
     }
 
@@ -1074,15 +1080,17 @@ sim_check_options(struct opt_odb_t *odb,        /* options database */
     }
   else /* il1 is defined */
     {
+//---------------------------------------------------------------------------------------
+//change the input parameter conditions to grab the newly needed value
       if (sscanf(cache_il1_opt, "%[^:]:%d:%d:%d:%d:%c",
-		 name, &nsets, &bsize, &assoc, &width_RRPV, &c) != 6)
-	fatal("bad l1 I-cache parms: <name>:<nsets>:<bsize>:<assoc>:<width_RRPV>:<repl>");
+		 name, &nsets, &bsize, &assoc, &RRPVC, &c) != 6)
+	fatal("bad l1 I-cache parms: <name>:<nsets>:<bsize>:<assoc>:<RRPVC>:<repl>");
       cache_il1 = cache_create(name, nsets, bsize, /* balloc */FALSE,
-			       /* usize */0, assoc,
-				   width_RRPV,
+			       /* usize */0, assoc, 
+				   RRPVC,
 				   cache_char2policy(c),
 			       il1_access_fn, /* hit lat */cache_il1_lat);
-
+//------------------------------------------------------------------------------------------
       /* is the level 2 D-cache defined? */
       if (!mystricmp(cache_il2_opt, "none"))
 	cache_il2 = NULL;
@@ -1094,13 +1102,15 @@ sim_check_options(struct opt_odb_t *odb,        /* options database */
 	}
       else
 	{
+//-----------------------------------------------------------------------------------------
+//change the input parameter conditions to grab the newly needed value
 	  if (sscanf(cache_il2_opt, "%[^:]:%d:%d:%d:%d:%c",
-		     name, &nsets, &bsize, &assoc, &width_RRPV, &c) != 6)
+		     name, &nsets, &bsize, &assoc, &RRPVC, &c) != 6)
 	    fatal("bad l2 I-cache parms: "
-		  "<name>:<nsets>:<bsize>:<assoc>:<width_RRPV>:<repl>");
+		  "<name>:<nsets>:<bsize>:<assoc>:<RRPVC>:<repl>");
 	  cache_il2 = cache_create(name, nsets, bsize, /* balloc */FALSE,
-				   /* usize */0, assoc,
-				   width_RRPV,
+				   /* usize */0, assoc, 
+				   RRPVC,
 				   cache_char2policy(c),
 				   il2_access_fn, /* hit lat */cache_il2_lat);
 	}
@@ -1111,12 +1121,14 @@ sim_check_options(struct opt_odb_t *odb,        /* options database */
     itlb = NULL;
   else
     {
+//-------------------------------------------------------------------------------------------
+//change the input parameter conditions to grab the newly needed value
       if (sscanf(itlb_opt, "%[^:]:%d:%d:%d:%d:%c",
-		 name, &nsets, &bsize, &assoc, &width_RRPV, &c) != 6)
-	fatal("bad TLB parms: <name>:<nsets>:<page_size>:<assoc>:<width_RRPV>:<repl>");
+		 name, &nsets, &bsize, &assoc, &RRPVC, &c) != 6)
+	fatal("bad TLB parms: <name>:<nsets>:<page_size>:<assoc>:<RRPVC>:<repl>");
       itlb = cache_create(name, nsets, bsize, /* balloc */FALSE,
 			  /* usize */sizeof(md_addr_t), assoc,
-			  width_RRPV,
+			  RRPVC,
 			  cache_char2policy(c), itlb_access_fn,
 			  /* hit latency */1);
     }
@@ -1126,12 +1138,14 @@ sim_check_options(struct opt_odb_t *odb,        /* options database */
     dtlb = NULL;
   else
     {
+//--------------------------------------------------------------------------------------------
+//change the input parameter conditions to grab the newly needed value
       if (sscanf(dtlb_opt, "%[^:]:%d:%d:%d:%d:%c",
-		 name, &nsets, &bsize, &assoc, &width_RRPV, &c) != 6)
-	fatal("bad TLB parms: <name>:<nsets>:<page_size>:<assoc>:<width_RRPV>:<repl>");
+		 name, &nsets, &bsize, &assoc, &RRPVC, &c) != 6)
+	fatal("bad TLB parms: <name>:<nsets>:<page_size>:<assoc>:<RRPVC>:<repl>");
       dtlb = cache_create(name, nsets, bsize, /* balloc */FALSE,
 			  /* usize */sizeof(md_addr_t), assoc,
-			  width_RRPV,
+			  RRPVC,
 			  cache_char2policy(c), dtlb_access_fn,
 			  /* hit latency */1);
     }
