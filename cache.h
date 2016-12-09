@@ -101,17 +101,20 @@
 /* cache replacement policy */
 enum cache_policy {
   LRU,		/* replace least recently used block (perfect LRU) */
-	DIP,		/* Dynamic Insertion Policy */
+//-------------------------------------------------------------------------------
+//adding the new policy to the header file
+  DIP,		/* Dynamic Insertion Policy */
   Random,	/* replace a random block */
   FIFO		/* replace the oldest block in the set */
 };
 
-/* type of set under DIP via Set Dueling */
+//-------------------------------------------------------------------------------
+//here we are initlizing the the struct that we used in the main cache file
 enum DIP_SDM_type {
 	LRU_set,		/* set dedicated to LRU policy */
 	BIP_set,		/* set dedicated to BIP policy */
 	Follower_set	/* follower set whose policy decided by PSEL */
-};				/* ----------  end of enum DIP_SDM_type  ---------- */
+};
 
 typedef enum DIP_SDM_type DIP_SDM_type;
 
@@ -145,7 +148,10 @@ struct cache_blk_t
 /* cache set definition (one or more blocks sharing the same set index) */
 struct cache_set_t
 {
-	enum DIP_SDM_type DIP_set_type;	/* type of set under DIP-SD */
+//---------------------------------------------------------------------------
+//add our struct to the list
+  enum DIP_SDM_type DIP_set_type;
+//---------------------------------------------------------------------------
   struct cache_blk_t **hash;	/* hash table: for fast access w/assoc, NULL
 				   for low-assoc caches */
   struct cache_blk_t *way_head;	/* head of way list */
@@ -167,12 +173,12 @@ struct cache_t
   int assoc;			/* cache associativity */
   enum cache_policy policy;	/* cache replacement policy */
   unsigned int hit_latency;	/* cache hit latency */
-
-  /* parameters for DIP (Dynamic Insertion Policy) */
-  int BIPCTR;			/* BIP(Bimodal Insertion Policy) non-saturating counter */
-  int width_BIPCTR;		/* width of BIP non-saturating counter */
-  int PSEL;				/* Policy Selector (saturating counter) */
-  int width_PSEL;		/* width of PSEL counter */
+//--------------------------------------------------------------------------------------
+  //variables that we need for the new policy
+  int CBIPCTR;			/* BIP(Bimodal Insertion Policy) non-saturating counter */
+  int BIPCTR;		/* width of BIP non-saturating counter */
+  int CPSEL;				/* Policy Selector (saturating counter) */
+  int PSEL;		/* width of PSEL counter */
 
   /* miss/replacement handler, read/write BSIZE bytes starting at BADDR
      from/into cache block BLK, returns the latency of the operation
@@ -237,8 +243,9 @@ cache_create(char *name,		/* name of the cache */
 	     int usize,			/* size of user data to alloc w/blks */
 	     int assoc,			/* associativity of cache */
 	     enum cache_policy policy,	/* replacement policy w/in sets */
-			 int width_BIPCTR,	/* width of BIP non-saturating counter */
-  		 int width_PSEL,	/* width of PSEL counter */
+//-----------------------------------------------------------------
+		 int BIPCTR,	/* width of BIP non-saturating counter */
+  		 int PSEL,	/* width of PSEL counter */
 	     /* block access function, see description w/in struct cache def */
 	     unsigned int (*blk_access_fn)(enum mem_cmd cmd,
 					   md_addr_t baddr, int bsize,
