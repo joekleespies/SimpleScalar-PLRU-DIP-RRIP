@@ -8,7 +8,7 @@ of SimpleScalar, LLC (info@simplescalar.com).
 warning: section `.comment' ignored...
 sim: command line: ./sim-outorder -max:inst 100000000 -fastfwd 10000000 -redir:sim results/arm_cortex_a8/dip/anagram.out -config config/arm_cortex_a8/arm_cortex_a8_dip.cfg benchmarks/instructor/anagram.alpha benchmarks/instructor/words 
 
-sim: simulation started @ Tue Dec  6 06:52:20 2016, options follow:
+sim: simulation started @ Tue Dec  6 14:33:52 2016, options follow:
 
 sim-outorder: This simulator implements a very detailed out-of-order issue
 superscalar processor with a two-level memory system and speculative
@@ -49,7 +49,7 @@ latency of all pipeline operations.
 -lsq:size                   8 # load/store queue (LSQ) size
 -cache:dl1       dl1:64:64:4:0:0:l # l1 data cache config, i.e., {<config>|none}
 -cache:dl1lat               1 # l1 data cache hit latency (in cycles)
--cache:dl2       ul2:512:64:8:0:0:d # l2 data cache config, i.e., {<config>|none}
+-cache:dl2       ul2:512:64:8:5:10:d # l2 data cache config, i.e., {<config>|none}
 -cache:dl2lat               8 # l2 data cache hit latency (in cycles)
 -cache:il1       il1:64:64:4:0:0:l # l1 inst cache config, i.e., {<config>|dl1|dl2|none}
 -cache:il1lat               1 # l1 instruction cache hit latency (in cycles)
