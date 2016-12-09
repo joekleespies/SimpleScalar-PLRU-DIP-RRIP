@@ -264,12 +264,8 @@ cache_create(char *name,		/* name of the cache */
 	     int balloc,		/* allocate data space for blocks? */
 	     int usize,			/* size of user data to alloc w/blks */
 	     int assoc,			/* associativity of cache */
-<<<<<<< HEAD
 //-------------------------------------------------------------------------------------------
 		 unsigned int RRPVC,	/* the counter for the hit/miss rate */
-=======
-		 unsigned int width_RRPV,	/* width of Re-Reference Prediction Value register */
->>>>>>> 063e385c507ddc8dd1a470c93132b8ce0917913d
 	     enum cache_policy policy,	/* replacement policy w/in sets */
 	     /* block access function, see description w/in struct cache def */
 	     unsigned int (*blk_access_fn)(enum mem_cmd cmd,
@@ -316,15 +312,11 @@ cache_create(char *name,		/* name of the cache */
   cp->assoc = assoc;
   cp->policy = policy;
   cp->hit_latency = hit_latency;
-<<<<<<< HEAD
   
   
   //-----------------------------------------------------------------------------
   //give the struct the value for RRPV the hit/miss counter
   cp->RRPVC = RRPVC;
-=======
-  cp->width_RRPV = width_RRPV;
->>>>>>> 063e385c507ddc8dd1a470c93132b8ce0917913d
 
   /* miss/replacement functions */
   cp->blk_access_fn = blk_access_fn;
@@ -404,10 +396,6 @@ cache_create(char *name,		/* name of the cache */
 	  unsigned int max_RRPV = (1 << (cp->RRPVC)) - 1;
 	  blk->RRPV = max_RRPV;
 
-	  /* initialize RRPV register */
-	  unsigned int max_RRPV = (1 << (cp->width_RRPV)) - 1;
-	  blk->RRPV = max_RRPV;
-
 	  /* insert cache block into set hash table */
 	  if (cp->hsize)
 	    link_htab_ent(cp, &cp->sets[i], blk);
@@ -436,7 +424,6 @@ cache_char2policy(char c)		/* replacement policy as a char */
   case 'l': return LRU;
   case 'r': return Random;
   case 'f': return FIFO;
-  case 'R': return RRIP;
   default: fatal("bogus replacement policy, `%c'", c);
   }
 }
@@ -453,14 +440,11 @@ cache_config(struct cache_t *cp,	/* cache instance */
 	  "cache: %s: %d-way, `%s' replacement policy, write-back\n",
 	  cp->name, cp->assoc,
 	  cp->policy == LRU ? "LRU"
-	  : cp->policy == Random ? "Random"
-	  : cp->policy == FIFO ? "FIFO"
-<<<<<<< HEAD
 //---------------------------------------------------------------------------------------------
 //set the policy of the struct that we are using 
-=======
->>>>>>> 063e385c507ddc8dd1a470c93132b8ce0917913d
 	  : cp->policy == RRIP ? "RRIP"
+	  : cp->policy == Random ? "Random"
+	  : cp->policy == FIFO ? "FIFO"
 	  : (abort(), ""));
 }
 
@@ -645,39 +629,7 @@ cache_access(struct cache_t *cp,	/* cache to access */
       repl = CACHE_BINDEX(cp, cp->sets[set].blks, bindex);
     }
     break;
-<<<<<<< HEAD
 
-=======
-  case RRIP:
-	{
-		unsigned int max_RRPV = (1 << (cp->width_RRPV)) - 1;
-		int victim_found = 0;
-//		int bindex = 0;
-	  do
-	  {
-      for (blk=cp->sets[set].way_head; blk; blk=blk->way_next)
-			{
-				if(blk->RRPV == max_RRPV)
-				{
-					repl = blk;
-					victim_found = 1;
-					break;
-				}
-			}
-			if(victim_found == 0)
-			{
-      	for (blk=cp->sets[set].way_head; blk; blk=blk->way_next)
-				{
-					blk->RRPV ++;
-				}
-			}
-		} while (victim_found == 0);
-  	/* update RRPV to long re-reference interval */
-//  	unsigned int max_RRPV = (1 << (cp->width_RRPV)) - 1;
-  	repl->RRPV = max_RRPV - 1;
-	}
-	break;
->>>>>>> 063e385c507ddc8dd1a470c93132b8ce0917913d
   default:
     panic("bogus replacement policy");
   }
@@ -772,7 +724,6 @@ cache_access(struct cache_t *cp,	/* cache to access */
       update_way_list(&cp->sets[set], blk, Head);
     }
 
-<<<<<<< HEAD
 //-----------------------------------------------------------------------------------------
 	// check for RRIP policy 
 	//if it is here we are see if the blcok has a hit and decrement its counter
@@ -780,13 +731,6 @@ cache_access(struct cache_t *cp,	/* cache to access */
 	{
 		if (blk -> RRPV > 0){
 				blk -> RRPV --;
-=======
-	/* Frequency-Priority Policy */
-	if (cp->policy == RRIP)
-	{
-		if ( blk->RRPV > 0 ) {
-				blk->RRPV --;
->>>>>>> 063e385c507ddc8dd1a470c93132b8ce0917913d
 		}
 	}
 
@@ -820,18 +764,11 @@ cache_access(struct cache_t *cp,	/* cache to access */
 
   /* this block hit last, no change in the way list */
 
-<<<<<<< HEAD
 //---------------------------------------------------------------------------------------------
 	/* Hit-Priority Policy */
 	if (cp->policy == RRIP)
 	{
 		blk -> RRPV = 0;
-=======
-	/* Hit-Priority Policy */
-	if (cp->policy == RRIP)
-	{
-		blk->RRPV = 0;
->>>>>>> 063e385c507ddc8dd1a470c93132b8ce0917913d
 	}
 
   /* tag is unchanged, so hash links (if they exist) are still valid */
