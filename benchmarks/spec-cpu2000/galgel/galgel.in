@@ -1,1 +1,5 @@
+<<<<<<< HEAD
 &GalGelInput   Nx=33, Ny=11, NKx=33, NKy=11 /
+=======
+&GalGelInput   Nx=13, Ny=1, NKx=13, NKy=1 /
+>>>>>>> 9c34be0e09ee7ff04e6b6ee10b179a15492c5ecf

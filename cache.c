@@ -257,28 +257,23 @@ update_way_list(struct cache_set_t *set,	/* set contained way chain */
 }
 
 /*-------------------------------------------------------------------------------------------*/
-/*
- * ===  FUNCTION  ======================================================================
- *         Name:  get_DIP_set_type
- *  Description:  get the set type under DIP-SD
- * =====================================================================================
- */
+//here we create a struct to determine which method we would use for the dip policy. eith LRU or BIP
 enum DIP_SDM_type
-get_DIP_set_type ( int set_ID,	/* cache set ID */
-	     int nsets )			/* total number of sets in cache */
-{
-		enum DIP_SDM_type DIP_set_type;
-		if ( set_ID % (nsets/32) == 0 ) {
-				DIP_set_type = LRU_set;
-		}
-		else if ( (set_ID+1) % (nsets/32) == 0 ) {
-				DIP_set_type = BIP_set;
-		}
-		else {
-				DIP_set_type = Follower_set;
-		}
-		return DIP_set_type;
-}		/* -----  end of function get_DIP_set_type  ----- */
+//sets: the number of sets in thecache
+DIP_type(int ID, int sets){
+	enum DIP_SDM_type DIP_set;
+	if ( set_ID % (sets/32) == 0 ) {
+			DIP_set = LRU_set;
+	}
+	else if ( (set_ID+1) % (sets/32) == 0 ) {
+			DIP_set = BIP_set;
+	}
+	else {
+			DIP_set = Follower_set;
+	}
+	return DIP_set;
+}
+//-----------------------------------------------------------------------------------------------
 
 /* create and initialize a general cache structure */
 struct cache_t *			/* pointer to cache created */
@@ -289,8 +284,10 @@ cache_create(char *name,		/* name of the cache */
 	     int usize,			/* size of user data to alloc w/blks */
 	     int assoc,			/* associativity of cache */
 	     enum cache_policy policy,	/* replacement policy w/in sets */
-			 int width_BIPCTR,	/* width of BIP non-saturating counter */
-  		 int width_PSEL,	/* width of PSEL counter */
+//-----------------------------------------------------------------------------------------------
+		 int BIPCTR,	// this the the counter needed for BIP assuming thats the policy chosen
+  		 int PSEL,	    // this is the number that is used to decide whic policy to use
+//----------------------------------------------------------------------------------------------
 	     /* block access function, see description w/in struct cache def */
 	     unsigned int (*blk_access_fn)(enum mem_cmd cmd,
 					   md_addr_t baddr, int bsize,
@@ -327,6 +324,13 @@ cache_create(char *name,		/* name of the cache */
   if (!cp)
     fatal("out of virtual memory");
 
+//----------------------------------------------------------------------------------------------
+// here we initalize the vriables we created for the new policy
+  cp->BIPCTR = BIPCTR;
+  cp->PSEL = PSEL;
+  cp->CBIPCTR = 0;
+  cp->CPSEL = 0;
+  
   /* initialize user parameters */
   cp->name = mystrdup(name);
   cp->nsets = nsets;
@@ -336,12 +340,6 @@ cache_create(char *name,		/* name of the cache */
   cp->assoc = assoc;
   cp->policy = policy;
   cp->hit_latency = hit_latency;
-
-  /* initialize DIP settings */
-  cp->width_BIPCTR = width_BIPCTR;
-  cp->width_PSEL = width_PSEL;
-	cp->BIPCTR = 0;
-	cp->PSEL = 0;
 
   /* miss/replacement functions */
   cp->blk_access_fn = blk_access_fn;
@@ -383,19 +381,19 @@ cache_create(char *name,		/* name of the cache */
     fatal("out of virtual memory");
 
   /* slice up the data blocks */
-  for (bindex=0,i=0; i<nsets; i++)
-    {
+  for (bindex=0,i=0; i<nsets; i++){
 
-			/* initialize set type when using DIP policy */
-			if ( cp->policy == DIP ) {
-					get_DIP_set_type(i, nsets);
-			}
+//-------------------------------------------------------------------------------------
+// if the DIP policy is chosen determine which policy will be used with our newly creadted function
+	if ( cp->policy == DIP ) {
+    	DIP_type(i, nsets);
+	}
+//-------------------------------------------------------------------------------------
 
       cp->sets[i].way_head = NULL;
       cp->sets[i].way_tail = NULL;
       /* get a hash table, if needed */
-      if (cp->hsize)
-	{
+      if (cp->hsize){
 	  cp->sets[i].hash =
 	    (struct cache_blk_t **)calloc(cp->hsize,
 					  sizeof(struct cache_blk_t *));
@@ -445,6 +443,8 @@ cache_char2policy(char c)		/* replacement policy as a char */
 {
   switch (c) {
   case 'l': return LRU;
+//---------------------------------------------------------------------------------------
+//add a check for the DIP case
   case 'd': return DIP;
   case 'r': return Random;
   case 'f': return FIFO;
@@ -464,7 +464,9 @@ cache_config(struct cache_t *cp,	/* cache instance */
 	  "cache: %s: %d-way, `%s' replacement policy, write-back\n",
 	  cp->name, cp->assoc,
 	  cp->policy == LRU ? "LRU"
+//-----------------------------------------------------------------------------------------------
 	  : cp->policy == DIP ? "DIP"
+//-----------------------------------------------------------------------------------------------
 	  : cp->policy == Random ? "Random"
 	  : cp->policy == FIFO ? "FIFO"
 	  : (abort(), ""));
@@ -610,74 +612,74 @@ cache_access(struct cache_t *cp,	/* cache to access */
   /* select the appropriate block to replace, and re-link this entry to
      the appropriate place in the way list */
   switch (cp->policy) {
+
+//---------------------------------------------------------------------------------------
+  case DIP:
+//built in and needed to run
+    repl = cp->sets[set].way_tail;
+    enum list_loc_t placed;
+    
+
+//here we run the code to use BIP
+    if(cp->sets[set].DIP_set == BIP_set){
+      //here we check if a value has enough hits to be set as MRU
+	    if(cp->CBIPCTR == 0){
+		    placed = Head;
+	    }
+	    else{
+		    placed = Tail;
+	    }
+	    //Here we decrement the counter since there was a miss with BIP
+	    if(cp->CPSEL > 0){
+		    cp->CPSEL --;
+	    }
+    }
+    
+//here we run the code to use LRU
+    else if(cp->sets[set].DIP_set == LRU_set){
+	    placed = Head;
+	    int max_PSEL = 1 << cp->PSEL - 1; //we determine the max number of the PSEL counter 
+	    //here we increment the counter since the LRU missed
+	    if ( cp->CPSEL < max_PSEL ) {
+		    cp->CPSEL ++;
+	    }
+    }
+    
+    else{
+	    // most significant bit of PSEL counter
+	    int First_PSEL = cp->CPSEL >> (cp->PSEL - 1); //this shifts the bits so that we only get the leading bit
+	    //if BIP wins use it
+	    if(First_PSEL == 1){
+		    if(cp->CBIPCTR == 0){
+		     placed = Head;
+		    }
+		    //if LRU wins use it
+		    else{
+		     placed = Tail;
+		    }
+	    }
+	    else{
+		    placed = Head;
+	    }
+    }
+    
+  update_way_list(&cp->sets[set], repl, placed);
+//we determine the max number of the BIP counter 
+    int max_BIPCTR = 1 << cp->CBIPCTR - 1;
+    if(cp->CBIPCTR < max_BIPCTR){
+		    cp->CBIPCTR ++;
+    }
+    else{
+		    cp->CBIPCTR = 0;
+    }
+    break;
+//---------------------------------------------------------------------------------------------
+
   case LRU:
   case FIFO:
     repl = cp->sets[set].way_tail;
     update_way_list(&cp->sets[set], repl, Head);
     break;
-	case DIP:
-		repl = cp->sets[set].way_tail;
-		enum list_loc_t where;		/* insert location */
-		if ( cp->sets[set].DIP_set_type == LRU_set ) {
-			where = Head;
-			// update PSEL to bias BIP
-			int max_PSEL = 1 << cp->width_PSEL - 1;
-			if ( cp->PSEL < max_PSEL ) {
-				cp->PSEL ++;
-			}
-		}
-		else if ( cp->sets[set].DIP_set_type == BIP_set ) {
-			if ( cp->BIPCTR == 0 ) {
-				// use LRU policy, MRU insertion
-				where = Head;
-			}
-			else {
-				// use LIP policy, LRU insertion
-				where = Tail;
-			}
-			// update BIPCTR in a non-saturating way
-//			int max_BIPCTR = 1 << cp->width_BIPCTR - 1;
-//			if ( cp->BIPCTR < max_BIPCTR ) {
-//					cp->BIPCTR ++;
-//			}
-//			else {
-//					cp->BIPCTR = 0;
-//			}
-			// update PSEL to bias LRU
-			if ( cp->PSEL > 0 ) {
-				cp->PSEL --;
-			}
-		}
-		else {
-			// most significant bit of PSEL counter
-			int MSB_PSEL = cp->PSEL >> (cp->width_PSEL - 1);
-			if ( MSB_PSEL == 1 ) {
-				// use BIP
-				if ( cp->BIPCTR == 0 ) {
-					// use LRU policy, MRU insertion
-					where = Head;
-				}
-				else {
-					// use LIP policy, LRU insertion
-					where = Tail;
-				}
-				// need to update BIPCTR ?
-			}
-			else {
-				// use LRU
-				where = Head;
-			}
-		}
-    update_way_list(&cp->sets[set], repl, where);
-		// update BIPCTR in a non-saturating way
-		int max_BIPCTR = 1 << cp->width_BIPCTR - 1;
-		if ( cp->BIPCTR < max_BIPCTR ) {
-				cp->BIPCTR ++;
-		}
-		else {
-				cp->BIPCTR = 0;
-		}
-		break;
   case Random:
     {
       int bindex = myrand() & (cp->assoc - 1);
@@ -778,12 +780,13 @@ cache_access(struct cache_t *cp,	/* cache to access */
       update_way_list(&cp->sets[set], blk, Head);
     }
 
+//----------------------------------------------------------------------------------------
+//we duplicated the LRU lines above because we dtermined we needed it for the DIP as well
   /* if DIP replacement and this is not the first element of list, reorder */
-  if (blk->way_prev && cp->policy == DIP)
-    {
-      /* move this block to head of the way (MRU) list */
-      update_way_list(&cp->sets[set], blk, Head);
-    }
+  if (blk->way_prev && cp->policy == DIP){
+    /* move this block to head of the way (MRU) list */
+    update_way_list(&cp->sets[set], blk, Head);
+  }
 
   /* tag is unchanged, so hash links (if they exist) are still valid */
 
