@@ -264,6 +264,8 @@ cache_create(char *name,		/* name of the cache */
 	     int balloc,		/* allocate data space for blocks? */
 	     int usize,			/* size of user data to alloc w/blks */
 	     int assoc,			/* associativity of cache */
+//-------------------------------------------------------------------------------------------
+		 unsigned int RRPVC,	/* the counter for the hit/miss rate */
 	     enum cache_policy policy,	/* replacement policy w/in sets */
 	     /* block access function, see description w/in struct cache def */
 	     unsigned int (*blk_access_fn)(enum mem_cmd cmd,
@@ -310,6 +312,11 @@ cache_create(char *name,		/* name of the cache */
   cp->assoc = assoc;
   cp->policy = policy;
   cp->hit_latency = hit_latency;
+  
+  
+  //-----------------------------------------------------------------------------
+  //give the struct the value for RRPV the hit/miss counter
+  cp->RRPVC = RRPVC;
 
   /* miss/replacement functions */
   cp->blk_access_fn = blk_access_fn;
@@ -369,9 +376,6 @@ cache_create(char *name,		/* name of the cache */
 	 during random replacement selection) */
       cp->sets[i].blks = CACHE_BINDEX(cp, cp->data, bindex);
       
-      int plruStateSize = cp->assoc - 1; // calculate the size (width in bits) of the PLRU state for each set, which is the associativity minus 1
-      cp->sets[i].plruState = (1 << plruStateSize) - 1; // set the PLRU state for each set, shift one and subtract to ensure the state size is correct
-
       /* link the data blocks into ordered way chain and hash table bucket
          chains, if hash table exists */
       for (j=0; j<assoc; j++)
@@ -386,6 +390,11 @@ cache_create(char *name,		/* name of the cache */
 	  blk->ready = 0;
 	  blk->user_data = (usize != 0
 			    ? (byte_t *)calloc(usize, sizeof(byte_t)) : NULL);
+			    
+//---------------------------------------------------------------------------------------------
+	  /* initialize RRPV register */
+	  unsigned int max_RRPV = (1 << (cp->RRPVC)) - 1;
+	  blk->RRPV = max_RRPV;
 
 	  /* insert cache block into set hash table */
 	  if (cp->hsize)
@@ -409,8 +418,10 @@ enum cache_policy			/* replacement policy enum */
 cache_char2policy(char c)		/* replacement policy as a char */
 {
   switch (c) {
+  //-------------------------------------------------------------------------------------------
+  // include the case for the new policy
+  case 'R': return RRIP;
   case 'l': return LRU;
-  case 'p': return PLRU;	// add a parse option to map 'p' to the PLRU option
   case 'r': return Random;
   case 'f': return FIFO;
   default: fatal("bogus replacement policy, `%c'", c);
@@ -429,9 +440,11 @@ cache_config(struct cache_t *cp,	/* cache instance */
 	  "cache: %s: %d-way, `%s' replacement policy, write-back\n",
 	  cp->name, cp->assoc,
 	  cp->policy == LRU ? "LRU"
-	  : cp->policy == PLRU ? "PLRU"		/* add a configuration output for PLRU */
 	  : cp->policy == Random ? "Random"
 	  : cp->policy == FIFO ? "FIFO"
+//---------------------------------------------------------------------------------------------
+//set the policy of the struct that we are using 
+	  : cp->policy == RRIP ? "RRIP"
 	  : (abort(), ""));
 }
 
@@ -494,27 +507,6 @@ cache_stats(struct cache_t *cp,		/* cache instance */
 	  cp->name,
 	  (double)cp->misses/sum, (double)(double)cp->replacements/sum,
 	  (double)cp->invalidations/sum);
-}
-
-// function to get the size (width in bits) of the block index
-int get_bindex_size(int associativity) {
-
-	int bindexSize = 0;		// initialize the size to zero
-
-	// keep shifting the associativity by the counter to count the number of bits required to select all of the sets
-	// could be hard coded to return:
-	//		1 bit for 2-way associative
-	//		2 bit for 4-way associative
-	//		3 bit for 8-way associative
-	// and so on, but easy implementation in code
-	while((associativity >> bindexSize) != 1) {
-
-		bindexSize += 1;	// increment the size in number of bits
-
-	}
-
-	return bindexSize;		// return the size of the block index
-
 }
 
 /* access a cache, perform a CMD operation on cache CP at address ADDR,
@@ -596,6 +588,36 @@ cache_access(struct cache_t *cp,	/* cache to access */
   /* select the appropriate block to replace, and re-link this entry to
      the appropriate place in the way list */
   switch (cp->policy) {
+//--------------------------------------------------------------------------------------------
+//here is where we implement the algorithm we are using
+  case RRIP:{
+		unsigned int max_RRPV = (1 << (cp->RRPVC)) - 1;
+		// victim is a variable for the block that will ge replaced
+		int victim = 0;
+	  do{
+          for (blk = cp -> sets[set].way_head; blk; blk = blk -> way_next){
+			    //checks to see if the block can be  replace
+			        
+			    //if yes replace the block and say it was the victim block
+			    if(blk -> RRPV == max_RRPV){
+			        repl = blk;
+				    victim = 1;
+				    break;
+			    }
+		    }
+			//if not a victim block ready to be replaced incrament their counter on a miss
+			if(victim == 0){
+      	        for (blk = cp -> sets[set].way_head; blk; blk = blk -> way_next){
+					blk -> RRPV++;
+				}
+			}
+	}
+	while (victim == 0);
+//set the inital rrpvc of a new block to one less than the max for the algorithm
+  	repl->RRPV = max_RRPV - 1;
+	}
+//-----------------------------------------------------------------------------------------------
+	break;
   case LRU:
   case FIFO:
     repl = cp->sets[set].way_tail;
@@ -607,6 +629,7 @@ cache_access(struct cache_t *cp,	/* cache to access */
       repl = CACHE_BINDEX(cp, cp->sets[set].blks, bindex);
     }
     break;
+
   default:
     panic("bogus replacement policy");
   }
@@ -701,6 +724,16 @@ cache_access(struct cache_t *cp,	/* cache to access */
       update_way_list(&cp->sets[set], blk, Head);
     }
 
+//-----------------------------------------------------------------------------------------
+	// check for RRIP policy 
+	//if it is here we are see if the blcok has a hit and decrement its counter
+	if (cp->policy == RRIP)
+	{
+		if (blk -> RRPV > 0){
+				blk -> RRPV --;
+		}
+	}
+
   /* tag is unchanged, so hash links (if they exist) are still valid */
 
   /* record the last block to hit */
@@ -730,6 +763,13 @@ cache_access(struct cache_t *cp,	/* cache to access */
     blk->status |= CACHE_BLK_DIRTY;
 
   /* this block hit last, no change in the way list */
+
+//---------------------------------------------------------------------------------------------
+	/* Hit-Priority Policy */
+	if (cp->policy == RRIP)
+	{
+		blk -> RRPV = 0;
+	}
 
   /* tag is unchanged, so hash links (if they exist) are still valid */
 
