@@ -262,10 +262,10 @@ enum DIP_SDM_type
 //sets: the number of sets in thecache
 DIP_type(int ID, int sets){
 	enum DIP_SDM_type DIP_set;
-	if ( set_ID % (sets/32) == 0 ) {
+	if ( ID % (sets/32) == 0 ) {
 			DIP_set = LRU_set;
 	}
-	else if ( (set_ID+1) % (sets/32) == 0 ) {
+	else if ( (ID + 1) % (sets/32) == 0 ) {
 			DIP_set = BIP_set;
 	}
 	else {

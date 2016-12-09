@@ -150,7 +150,7 @@ struct cache_set_t
 {
 //---------------------------------------------------------------------------
 //add our struct to the list
-  enum DIP_SDM_type DIP_set_type;
+  enum DIP_SDM_type DIP_set;
 //---------------------------------------------------------------------------
   struct cache_blk_t **hash;	/* hash table: for fast access w/assoc, NULL
 				   for low-assoc caches */
